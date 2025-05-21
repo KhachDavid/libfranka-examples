@@ -33,7 +33,8 @@ set(EXAMPLES
   move_joint7_velocity
   move_joint7_pose
   move_joint7_twist
-  move_joint7_torque)
+  move_joint7_torque
+  sudden_torque_drop)
 
 foreach(ex ${EXAMPLES})
   add_executable(${ex} src/${ex}.cpp)
