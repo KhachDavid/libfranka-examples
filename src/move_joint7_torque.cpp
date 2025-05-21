@@ -7,34 +7,48 @@
 #include <franka/control_types.h>
 
 int main(int argc, char** argv) {
-  if (argc != 2) { std::cerr << "Usage: " << argv[0] << " <robot-ip>\n"; return -1; }
+  if (argc < 2) {
+    std::cerr << "Usage: " << argv[0] << " <robot-ip> <torque>\n";
+    return -1;
+  }
+
+  double max_torque = std::stod(argv[2]);
+  if (max_torque < -10.0 || max_torque > 10.0) {
+    std::cerr << "Torque must be between -10.0 and 10.0 Nm.\n";
+    return -1;
+  }
 
   try {
     franka::Robot robot(argv[1]);
     robot.automaticErrorRecovery();
-    setDefaultBehavior(robot);
+    setDefaultBehavior(robot);  // Keeps torque rate saturation enabled
 
-    const double q_start = robot.readOnce().q[6];
-    const double q_des   = q_start + 0.2;
+    constexpr double ramp_time = 2.0;   // Ramp over 1 second
+    constexpr double total_duration = 2.0;
 
-    constexpr double Kp = 25.0;   // Nm/rad
-    constexpr double Kd = 3.0;    // Nm/(rad/s)
-    double t = 0.0;
+    double time = 0.0;
 
-    robot.control([&](const franka::RobotState& s, franka::Duration dt)
-                  -> franka::Torques {
-      t += dt.toSec();
+    robot.control([&](const franka::RobotState& state, franka::Duration dt) -> franka::Torques {
+      time += dt.toSec();
       std::array<double, 7> tau{};
 
-      double e  = q_des - s.q[6];
-      double de = -s.dq[6];
-      tau[6] = Kp * e + Kd * de;
+      // Linear ramp up
+      double ramped_torque = (time < ramp_time) ? (max_torque * time / ramp_time) : max_torque;
+      tau[6] = ramped_torque;
 
-      if (t > 3.0 || std::abs(e) < 1e-3)
+      // Stop after total duration
+      if (time >= total_duration) {
+        std::cout << "Finished torque command.\n";
         return franka::MotionFinished(franka::Torques(tau));
+      }
+
       return franka::Torques(tau);
     });
 
-  } catch (const franka::Exception& e) { logError(e); return -1; }
+  } catch (const franka::Exception& e) {
+    logError(e);
+    return -1;
+  }
+
   return 0;
 }

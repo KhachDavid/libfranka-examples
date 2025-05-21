@@ -17,7 +17,7 @@ int main(int argc, char** argv) {
     setDefaultBehavior(robot);
 
     std::array<double,7> q_start{}, q_goal{};
-    constexpr double delta_q7 = 0.20;   // rad
+    constexpr double delta_q7 = -0.20;   // rad
     constexpr double T        = 2.0;    // s
 
     double t = 0.0;
